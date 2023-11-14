@@ -1,0 +1,79 @@
+---
+title: "email"
+format: html
+editor: visual
+---
+
+```{r}
+library(blastula)
+library(dplyr)
+library(glue)
+library(readr)
+```
+
+```{r}
+create_smtp_creds_key(
+  id = "afpCAMH",
+  user = "info@afp-fmc-camh.ca",
+  provider = "gmail",
+  use_ssl = TRUE,
+  overwrite = TRUE
+)
+```
+
+```{r}
+email_df <-
+  read_csv(here("data/users_list.csv")) %>%
+  select(username, first_name, last_name, email, password, is_active) %>%
+  filter(is_active == 1)
+```
+
+```{r}
+group_email_template <- function(group_data) {
+  title = "2022 AFP Database Login Credentials"
+  
+  email = group_data %>%
+    glue_data(
+      "Hi Dr. {last_name},\n\n\n\n",
+      "We have now moved to a new website (https://afp-fmc-camh.ca), which should hopefully allow for a smoother data entry process for your AFP claims. Your login credentials are below:\n\n\n\n",
+      "**Website:** https://afp-fmc-camh.ca\n\n\n\n",
+      "**Username:** {username}\n\n\n\n",
+      "**Password:** {password}\n\n\n\n",
+      "Once logged in, you can click on the ‘Profile’ tab and then click on the ‘Change Password’ button under ‘Login Options’ to change your password.\n\n\n\n",
+      "Since this is a new process, there will likely be some hiccups along the way. Please don’t hesitate to reach out if you notice any issues with the website or if you have any suggestions for improving the data entry process. As mentioned previously, we will also be hosting 3 info sessions in the coming weeks to help you get oriented to the new user interface.\n\n\n\n",
+      "Note that any data that is usually pre-entered such as grants from previous years, publications from PubMed, examination and supervision data from central sources will get entered over the weekend.\n\n\n\n",
+      "Best,\n\n\n\n",
+      "Michael"
+      ) %>%
+    md() %>%
+    compose_email(title = title)
+  
+  out = list("email" = email, "title" = title)
+  
+  return(out)
+}
+```
+
+```{r}
+for (i in seq_len(nrow(email_df))) {
+  # Retrieve current team
+  group_data = email_df[i, ] 
+  
+  # Construct the e-mail using our custom template.
+  # Returns a list with `email` and `title`
+  email_contents = group_email_template(group_data)
+
+  # Generate a to-field
+  to = group_data$email
+
+  # Send e-mail
+  email_contents$email %>%
+    smtp_send(
+      from = "info@afp-fmc-camh.ca",
+      to = to,
+      subject = email_contents$title,
+      credentials = creds_key(id = "afpCAMH")
+    )
+  Sys.sleep(10)
+}
+```

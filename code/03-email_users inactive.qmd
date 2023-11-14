@@ -1,0 +1,78 @@
+---
+title: "email"
+format: html
+editor: visual
+---
+
+```{r}
+library(blastula)
+library(dplyr)
+library(glue)
+library(readr)
+```
+
+```{r}
+create_smtp_creds_key(
+  id = "afpCAMH",
+  user = "info@afp-fmc-camh.ca",
+  provider = "gmail",
+  use_ssl = TRUE,
+  overwrite = TRUE
+)
+```
+
+```{r}
+email_df <-
+  read_csv(here("data/users_logged_in.csv")) %>%
+  select(username, first_name, last_name, email, password)
+```
+
+```{r}
+group_email_template <- function(group_data) {
+  title = "2022 AFP Database Login Credentials"
+  
+  email = group_data %>%
+    glue_data(
+      "Hi Dr. {last_name},\n\n\n\n",
+      "According to our records, you haven't logged into the AFP website yet to submit your claims. As a reminder, the final deadline for data entry is set for **Monday January 9th, 2023 at 11:59 PM**. For your convenience, your login credentials are below:\n\n\n\n",
+      "**Website:** https://afp-fmc-camh.ca\n\n\n\n",
+      "**Username:** {username}\n\n\n\n",
+      "**Password:** {password}\n\n\n\n",
+      "Once logged in, you can click on the ‘Profile’ tab and then click on the ‘Change Password’ button under ‘Login Options’ to change your password.\n\n\n\n",
+      "The AFP website is public-facing so you can access it from anywhere. Please use either Google Chrome, Mozilla Firefox or Microsoft Edge.\n\n\n\n",
+      "Please don’t hesitate to reach out if you notice any issues with the website or if you have any suggestions for improving the data entry process.\n\n\n\n",
+      "Best,\n\n\n\n",
+      "Michael"
+      ) %>%
+    md() %>%
+    compose_email(title = title)
+  
+  out = list("email" = email, "title" = title)
+  
+  return(out)
+}
+```
+
+```{r}
+for (i in seq_len(nrow(email_df))) {
+  # Retrieve current team
+  group_data = email_df[i, ] 
+  
+  # Construct the e-mail using our custom template.
+  # Returns a list with `email` and `title`
+  email_contents = group_email_template(group_data)
+
+  # Generate a to-field
+  to = group_data$email
+
+  # Send e-mail
+  email_contents$email %>%
+    smtp_send(
+      from = "info@afp-fmc-camh.ca",
+      to = to,
+      subject = email_contents$title,
+      credentials = creds_key(id = "afpCAMH")
+    )
+  Sys.sleep(10)
+}
+```

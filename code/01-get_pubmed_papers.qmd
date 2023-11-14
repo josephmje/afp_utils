@@ -1,0 +1,78 @@
+---
+title: "afp_utils"
+---
+
+## Quarto
+
+```{r}
+library(dplyr)
+library(easyPubMed)
+library(glue)
+library(here)
+library(readr)
+library(stringr)
+library(tidyr)
+library(purrr)
+library(fuzzyjoin)
+```
+
+```{r}
+df <-
+  read_csv(here("data/users_report.csv"))
+```
+
+```{r}
+pub_df <-
+  df %>%
+  select(first_name, last_name) %>%
+  mutate(query = glue('{first_name} {last_name}[AU] AND "2023"[PDAT] AND ("Centre for Addiction and Mental Health"[Affiliation] OR "CAMH"[Affiliation] OR "University of Toronto"[Affiliation])'))
+```
+
+```{r}
+datalist = list()
+for (row in 1:nrow(pub_df)) {
+  out.B <- batch_pubmed_download(pubmed_query_string = pub_df[row, "query"],
+                                 dest_dir = here("data/pubmed/"),
+                                 dest_file_prefix = glue("{pub_df[row, 'first_name']}_{pub_df[row, 'last_name']}_"), 
+                                 encoding = "ASCII")
+  if (!is.null(out.B)) {
+    new_PM_df <- table_articles_byAuth(pubmed_data = here(glue("data/pubmed/{out.B}")), 
+                                       included_authors = "first", 
+                                       max_chars = 0, 
+                                       encoding = "ASCII")
+    datalist[[row]] <- new_PM_df
+  }
+  Sys.sleep(5)
+}
+```
+
+```{r}
+pmid_export_list <- list.files(here("data/pubmed/"), pattern="*.txt")
+```
+
+```{r}
+datalist = list()
+for (i in 1:length(pmid_export_list)) {
+    new_PM_df <- table_articles_byAuth(pubmed_data = here(glue("data/pubmed/{pmid_export_list[i]}")), 
+                                       included_authors = "first", 
+                                       max_chars = 0, 
+                                       encoding = "ASCII")
+    datalist[[i]] <- new_PM_df
+}
+```
+
+```{r}
+big_data <- do.call(rbind, datalist)
+```
+
+```{r}
+big_data %>%
+  mutate(pub_type = 1,
+         ver_url = glue("https://doi.org/{doi}")) %>%
+  rename(other_journal_name = journal,
+         pub_year = year,
+         pub_month = month) %>%
+  select(pub_type, title, other_journal_name, pub_month, pub_year, pmid, ver_url) %>%
+  unique() %>%
+  write_csv(here("data/publication_list.csv"))
+```

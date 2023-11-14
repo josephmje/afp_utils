@@ -1,0 +1,89 @@
+---
+title: "email"
+format: html
+editor: visual
+---
+
+```{r}
+library(blastula)
+library(dplyr)
+library(glue)
+library(readr)
+```
+
+```{r}
+create_smtp_creds_key(
+  id = "afpCAMH",
+  user = "info@afp-fmc-camh.ca",
+  provider = "gmail",
+  use_ssl = TRUE,
+  overwrite = TRUE
+)
+```
+
+```{r}
+email_df <-
+  read_csv(here("data/users_report_zip.csv")) %>%
+  select(username, first_name, last_name, email)
+```
+
+```{r}
+group_email_template <- function(group_data) {
+  title = "2022 AFP Preliminary Report"
+  
+  email = group_data %>%
+    glue_data(
+      "Hi Dr. {last_name},\n\n\n\n",
+      "\n\n\n\n",
+      "Thank you for submitting your claims to the new AFP website. The committee has finished reviewing all of the data. Attached is an interactive report for you to view the eligibility of your claims. You may open the report by:\n\n\n\n",
+      "- Downloading the file\n\n\n\n",
+      "- Navigate to it in your file explorer\n\n\n\n",
+      "- For a few users, the file size of the report was too large to send over email and I've had to compress the report. If the attached file ends in *.zip*, you may need to uncompress the file. Please let me know if you are having trouble doing this and I can find an alternate way to send the report.\n\n\n\n",
+      "- Right click > Open With > select the Internet browser of your choice\n\n\n\n",
+      "After reviewing the report, if you have any questions regarding the results, please email **both** Daniel Mueller (daniel.mueller@camh.ca) and Michael Joseph (info@afp-fmc-camh.ca) by end of day **January 27th, 2023**.\n\n\n\n",
+      "Your access to the AFP submission portal (https://afp-fmc-camh.ca) has resumed. The contents of the report have been condensed to contain just the most pertinent information. If there are any details about a specific claim that are missing in the report, you may find it on the website.\n\n\n\n",
+      "**NOTE:** Please reach out to us first regarding any claims before making any updates on the website. This will ensure that we are aware of any changes that need to be made and can verify them quickly.\n\n\n\n",
+      "Best,\n\n\n\n",
+      "Michael"
+      ) %>%
+    md() %>%
+    compose_email(title = title)
+
+  email_w_attachment <-
+    email %>%
+    add_attachment(file = group_data %>% glue_data("reports/AFP_Preliminary_Report_{first_name}_{last_name}_2023-01-24.html.zip"))
+    
+  out = list("email" = email_w_attachment, "title" = title)
+  
+  return(out)
+  
+}
+```
+
+```{r}
+for (i in seq_len(nrow(email_df))) {
+  # Retrieve current team
+  group_data = email_df[i, ] 
+    
+  # Construct the e-mail using our custom template.
+  # Returns a list with `email` and `title`
+  email_contents = group_email_template(group_data)
+
+  # Generate a to-field
+  to = group_data$email
+
+  # Send e-mail
+  try(
+    email_contents$email %>%
+      smtp_send(
+        from = "info@afp-fmc-camh.ca",
+        to = to,
+        subject = email_contents$title,
+        credentials = creds_key(id = "afpCAMH")
+        ),
+    silent = TRUE
+  )
+    
+  Sys.sleep(10)
+}
+```

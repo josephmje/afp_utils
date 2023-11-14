@@ -1,0 +1,256 @@
+---
+title: "AFP 2022 - Preliminary Report"
+date: today
+output:
+  html_document:
+    echo: false
+    theme: cosmo
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 2
+    df_print: paged
+params:
+  user: 163
+---
+
+```{r}
+#| message: false
+library(dplyr)
+library(glue)
+library(gt)
+library(gtExtras)
+library(gtsummary)
+library(readr)
+library(tidyr)
+
+source("calc_final_awards.R")
+```
+
+```{r}
+name <-
+  final_award_df %>%
+  filter(user_id_id == params$user) %>%
+  select(name) %>%
+  unlist()
+
+final_award <-
+  final_award_df %>%
+  filter(user_id_id == params$user) %>%
+  select(`Final Award`) %>%
+  unlist() %>%
+  round(digits = 2)
+```
+
+# `r name`
+
+## Summary
+
+#### Final Award - `r sprintf("$%.2f", final_award)`
+
+```{r}
+final_award_df %>%
+  filter(user_id_id == params$user) %>%
+  select(`Promotion`, `Awards`, `CPA`) %>%
+  gt() %>%
+  fmt_currency(
+    columns = c(`Promotion`, `Awards`, `CPA`),
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()
+```
+
+```{r}
+final_award_df %>%
+  filter(user_id_id == params$user) %>%
+  select(`Grant Reviews`, `Editorial Boards`, `Books`, `Publication Points`, `Publications`, `Grant Points`, `Grants`) %>%
+  gt() %>%
+  fmt_currency(
+    columns = c(`Grant Reviews`, `Editorial Boards`, `Books`, `Publications`, `Grants`),
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()
+```
+
+```{r}
+final_award_df %>%
+  filter(user_id_id == params$user) %>%
+  select(core_teaching, `Core Teaching`, noncore_teaching, `Non-core Teaching`) %>%
+  rename(`Core Teaching Points` = core_teaching,
+         `Non-core Teaching Points` = noncore_teaching) %>%
+  gt() %>%
+  fmt_currency(
+    columns = c(`Core Teaching`, `Non-core Teaching`),
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()
+```
+
+## Special Merit
+
+### Promotions
+
+```{r}
+promotion_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  gt() %>%
+  fmt_currency(
+    columns = value,
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()  
+```
+
+### Awards
+
+```{r}
+award_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  arrange(award_level) %>%
+  gt(rowname_col = "row", groupname_col = "award_level") %>%
+  fmt_currency(
+    columns = value,
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()  
+```
+
+### CPAs
+
+```{r}
+cpa_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  gt() %>%
+  fmt_currency(
+    columns = value,
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()  
+```
+
+## Research
+
+### Grant Reviews
+
+```{r}
+grantreview_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  arrange(review_type) %>%
+  gt(rowname_col = "row", groupname_col = "review_type") %>%
+  fmt_currency(
+    columns = value,
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()  
+```
+
+### Editorial Boards
+
+```{r}
+editorialboard_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  gt() %>%
+  fmt_currency(
+    columns = value,
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()  
+```
+
+### Books
+
+```{r}
+book_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  arrange(pub_type) %>%
+  gt(rowname_col = "row", groupname_col = "pub_type") %>%
+  fmt_currency(
+    columns = value,
+    currency = "CAD"
+  ) %>%
+  gt_theme_538()  
+```
+
+### Journal Articles
+
+```{r}
+article_df %>%
+  filter(user_id_id == params$user & pub_type == "Journal Article") %>%
+  select(-c(user_id_id, pub_type, pmid, volume, issue, is_epub, conf_name, conf_date)) %>%
+  arrange(article_type) %>%
+  gt(rowname_col = "row", groupname_col = c("pub_type", "article_type")) %>%
+  gt_theme_538()  
+```
+
+### Conference Abstracts
+
+```{r}
+article_df %>%
+  filter(user_id_id == params$user & pub_type == "Conference Abstract") %>%
+  select(-c(user_id_id, pub_type, article_type, pmid, journal, other_journal_name, impact_factor, is_epub, pub_year, volume, issue)) %>%
+  gt() %>%
+  gt_theme_538()  
+```
+
+### Grants
+
+```{r}
+grant_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  arrange(agency_weight, grant_role, end_date) %>%
+  gt(rowname_col = "row", groupname_col = "agency_weight") %>%
+  gt_theme_538()  
+```
+
+## Teaching
+
+### Committee Work
+
+```{r}
+committee_df %>%
+  filter(user_id_id == params$user) %>%
+  select(-user_id_id) %>%
+  gt() %>%
+  gt_theme_538()  
+```
+
+### Exams
+
+```{r}
+exam_df %>%
+  filter(user_id_id == params$user) %>%
+  arrange(exam_type_id) %>%
+  select(-c(user_id_id, exam_type_id, exam_weight)) %>%
+  gt(rowname_col = "row", groupname_col = "exam_type") %>%
+  gt_theme_538()  
+```
+
+### Lectures
+
+```{r}
+lecture_df %>%
+  filter(user_id_id == params$user) %>%
+  arrange(lecture_type_id) %>%
+  select(-c(user_id_id, lecture_type_id, lecture_weight)) %>%
+  gt(rowname_col = "row", groupname_col = "lecture_type") %>%
+  gt_theme_538()  
+```
+
+### Supervision
+
+```{r}
+supervision_df %>%
+  filter(user_id_id == params$user) %>%
+  arrange(supervision_type_id) %>%
+  select(-c(user_id_id, supervision_type_id, supervision_weight, frequency_id)) %>%
+  gt(rowname_col = "row", groupname_col = "supervision_type") %>%
+  gt_theme_538()  
+```
